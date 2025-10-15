@@ -1,0 +1,162 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cloud Resource Cost Calculator — Colorful</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="page-bg">
+    <div class="container">
+      <header class="header">
+        <h1>Cloud Resource Cost Calculator</h1>
+        <p class="subtitle">Estimate monthly cloud costs — colorful & optimized UI</p>
+      </header>
+
+      <section class="card">
+        <div class="form-grid">
+          <div class="field">
+            <label>Cloud Provider</label>
+            <select id="provider">
+              <option value="AWS">AWS</option>
+              <option value="Azure">Azure</option>
+              <option value="GCP">Google Cloud</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Instances</label>
+            <input id="instances" type="number" min="0" value="1">
+          </div>
+
+          <div class="field">
+            <label>vCPUs per instance</label>
+            <input id="vcpu" type="number" min="1" value="2">
+          </div>
+
+          <div class="field">
+            <label>Hours / month (per instance)</label>
+            <input id="hours" type="number" min="0" value="720">
+          </div>
+
+          <div class="field">
+            <label>Price per vCPU-hour (INR)</label>
+            <input id="price_vcpu" type="number" step="0.0001" value="3.72">
+          </div>
+
+          <div class="field">
+            <label>Storage (GB)</label>
+            <input id="storage" type="number" min="0" value="100">
+          </div>
+
+          <div class="field">
+            <label>Price per GB-month (INR)</label>
+            <input id="price_storage" type="number" step="0.01" value="6.65">
+          </div>
+
+          <div class="field">
+            <label>Outbound Bandwidth (GB)</label>
+            <input id="bandwidth" type="number" min="0" value="200">
+          </div>
+
+          <div class="field">
+            <label>Price per GB (INR)</label>
+            <input id="price_bandwidth" type="number" step="0.01" value="7.47">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="calc">Calculate</button>
+          <button id="download">Download CSV</button>
+        </div>
+
+        <div id="result" class="result" aria-live="polite" hidden>
+          <div class="result-grid">
+            <div><strong>Compute</strong><div id="computeVal"></div></div>
+            <div><strong>Storage</strong><div id="storageVal"></div></div>
+            <div><strong>Bandwidth</strong><div id="bandwidthVal"></div></div>
+            <div class="total"><strong>Total</strong><div id="totalVal"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">Built with ♥ — optimized for presentations</footer>
+    </div>
+  </main>
+
+<script>
+const $ = id => document.getElementById(id)
+
+async function calculate(){
+  const payload = {
+    provider: $('provider').value,
+    instances: Number($('instances').value)||0,
+    vcpu: Number($('vcpu').value)||0,
+    hours: Number($('hours').value)||0,
+    price_vcpu: Number($('price_vcpu').value)||0,
+    storage: Number($('storage').value)||0,
+    price_storage: Number($('price_storage').value)||0,
+    bandwidth: Number($('bandwidth').value)||0,
+    price_bandwidth: Number($('price_bandwidth').value)||0
+  }
+  try{
+    const res = await fetch('/api/calculate', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if(res.ok){
+      $('computeVal').innerText = '₹' + data.computeCost.toLocaleString('en-IN')
+      $('storageVal').innerText = '₹' + data.storageCost.toLocaleString('en-IN')
+      $('bandwidthVal').innerText = '₹' + data.bandwidthCost.toLocaleString('en-IN')
+      $('totalVal').innerText = '₹' + data.total.toLocaleString('en-IN')
+      $('result').hidden = false
+    } else {
+      alert('Calculation error: ' + (data.error || 'unknown'))
+    }
+  }catch(e){
+    alert('Network error: ' + e.message)
+  }
+}
+
+async function downloadCSV(){
+  const payload = {
+    provider: $('provider').value,
+    instances: Number($('instances').value)||0,
+    vcpu: Number($('vcpu').value)||0,
+    hours: Number($('hours').value)||0,
+    price_vcpu: Number($('price_vcpu').value)||0,
+    storage: Number($('storage').value)||0,
+    price_storage: Number($('price_storage').value)||0,
+    bandwidth: Number($('bandwidth').value)||0,
+    price_bandwidth: Number($('price_bandwidth').value)||0
+  }
+  try{
+    const res = await fetch('/download/csv', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify(payload)
+    })
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cloud_cost_estimate.csv'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  }catch(e){
+    alert('Download failed: ' + e.message)
+  }
+}
+
+$('calc').addEventListener('click', calculate)
+$('download').addEventListener('click', downloadCSV)
+</script>
+</body>
+</html>
